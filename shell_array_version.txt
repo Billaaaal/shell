@@ -1,0 +1,220 @@
+#include<iostream>
+#include<vector>
+#include <sstream>
+#include <string>
+#include <iterator>
+#include <iomanip>
+#include <curses.h>
+#include <fstream>
+using namespace std;
+
+
+const string BLUEB = "\033[1;34m";
+const string BLUEE = "\033[0m";
+
+
+const string REDB = "\033[1;31m";
+const string REDE = "\033[0m";
+
+
+void split(vector<string> &args, string &token, char delimiter){
+
+  std::stringstream test(token);
+  std::string segment;
+  std::vector<std::string> seglist;
+
+  while(std::getline(test, segment, delimiter))
+  {
+    seglist.push_back(segment);
+  }
+
+  args = seglist;
+  
+}
+void touch(const vector<string> &args , vector<vector<string>> &filesList){
+    if(args.size()>1){
+      vector<string> fileTemp = {args[1], ""};
+      filesList.push_back(fileTemp);
+
+    }else{
+      cerr << "touch: missing file operand" << endl;
+    }
+}
+
+
+void ls(vector<vector<string>> &files){
+    for(int i=0; i<files.size(); i++){
+        cout << files[i][0]<< "  ";
+    }
+    cout << endl;
+}
+
+int searchFile(const string &fileName , vector<vector<string>> &filesList){
+  int i = 0;
+  bool found = false;
+  
+  while(i<filesList.size() && !found) {
+    found = fileName==filesList[i][0];
+    i++;
+  }
+    
+  return (found ? i-1 : -1);
+
+}
+
+void cat(const vector<string> &args , vector<vector<string>> &filesList){
+  if(args.size()>1){
+    int fileIndex = searchFile(args[1], filesList);
+    if(fileIndex!=-1) cout << filesList[fileIndex][1] << endl;
+    else cerr << "cat: " << args[1] << ": No such file or directory" << endl;
+  }else{
+    cerr << "cat: missing file operand" << endl;
+  }
+
+}
+
+
+void rm(const vector<string> &args , vector<vector<string>> &filesList){
+  if(args.size()>1){
+    int fileIndex = searchFile(args[1], filesList);
+    if(fileIndex!=-1) filesList.erase(filesList.begin()+fileIndex);
+    else cerr << "rm: " << args[1] << ": No such file or directory" << endl;
+  }else{
+    cerr << "rm: missing file operand" << endl;
+  }
+
+}
+
+
+void nano(const vector<string> &args , vector<vector<string>> &filesList){
+  if(args.size()>1){
+    int fileIndex = searchFile(args[1], filesList);
+    if(fileIndex==-1){
+      system("clear");
+      cout << "NANO" << endl<<endl;
+      cout << "Enter :q to exit" << endl<<endl;
+
+        string fullString;
+        string line;
+        while (line!=":q")
+        { 
+          
+          fullString+=("\n"+line);
+          getline(cin, line);
+        }
+        vector<string> fileTemp = {args[1], fullString};
+        filesList.push_back(fileTemp);
+
+        //system(("echo '" + fullString + "' > disk/" + args[1]).c_str());
+        //or directly write to the file using fstream
+        fstream("disk/" + args[1], ios::out | ios::trunc) << fullString;
+    }
+    else cerr << "nano: " << args[1] << ": Files already exists" << endl;
+  }else{
+    cerr << "nano: missing file operand" << endl;
+  }
+
+}
+string getVar(vector<vector<string>>&variables, string varName){
+  int i = 0;
+  bool found = false;
+  
+  while(i<variables.size() && !found) {
+    found = varName==variables[i][0];
+    i++;
+  }
+
+  return (found ? variables[i-1][1] : "");
+
+    
+}
+void echo( vector<string> &args, vector<vector<string>>&variables){
+  for(int i = 1; i< args.size(); i++){
+    if(args[i].substr(0, 1) == "$") {
+      args[i] = args[i].substr(1);
+      cout << getVar(variables, args[i]) << " ";
+      }
+    else cout << args[i] << " ";
+  }
+  cout << endl;
+
+}
+
+void clearShell(){
+  
+  system("clear");
+
+}
+
+
+void createVar(vector <string> &varArgs, vector<vector<string>>&variables){
+    if (varArgs[1].front() == '"') varArgs[1] = varArgs[1].substr(1);
+    if (!varArgs[1].empty() && varArgs[1].back() == '"')varArgs[1].pop_back();
+        
+  variables.push_back({varArgs[0], varArgs[1]});
+  
+}
+
+
+
+void printenv(vector<vector<string>>&variables){
+  for(int i = 0; i<variables.size(); i++){
+    cout << variables[i][0] << "=" << variables[i][1] << endl;
+  }
+}
+
+
+void whoami(vector<vector<string>>&variables){
+  cout << getVar(variables, "USER") << endl;
+}
+
+
+void pwd(vector<vector<string>>&variables){
+  cout << getVar(variables, "CURRENTDIR") << endl;
+}
+
+int main(){
+    vector<vector<string>> files = {{"main.cpp", "printf('Hello world')"}};
+    vector<vector<string>> variables = {{"USER", "billal"}, {"HOST", "SWIFT"}, {"PATH", "/bin:/usr/bin"}, {"CURRENTDIR", "/home/billal"}};
+
+    string input;
+    string user = getVar(variables, "USER");
+    string host = getVar(variables, "HOST");
+    string currentDir = getVar(variables, "CURRENTDIR");
+    system("clear");
+    while(true){
+        cout << REDB <<user<<"@"<<host<<REDE<<":"<<BLUEB<<(currentDir==("/home/"+user) ? "~":currentDir)<<BLUEE<<"$ ";
+        getline(cin, input);
+        vector<string> args;      
+        split(args, input, ' ');
+        if(args.size()==0);
+        else if(args[0]=="ls") {ls(files);}
+        else if(args[0]=="touch"){touch(args, files);}
+        else if(args[0]=="cd"){}
+        else if(args[0]=="rm"){rm(args, files);}
+        else if(args[0]=="echo"){echo(args, variables);}
+        else if(args[0]=="exit") {return 1;}
+        else if(args[0]=="pwd"){pwd(variables);}
+        else if(args[0]=="cat"){cat(args, files);}
+        else if(args[0]=="nano"){nano(args,files);}
+        else if(args[0]=="whoami"){whoami(variables);}
+        else if(args[0]=="clear"){clearShell();}
+        else if(args[0]=="help"){cout << "ls, touch, cd, rm, echo, exit, pwd, cat, nano, whoami, clear, help, printenv " << endl;}
+        else if(args[0]=="printenv"){printenv(variables);}
+        else if (args[0]=="alias") {}
+        else if(args[0]=="cp"){}
+        else if(args[0]=="unalias"){}
+        else if(args[0]=="g++"){system("g++ shell.cpp && ./a.out");}
+        else if (args[0].find("=") != std::string::npos) {
+        vector<string> varArgs;
+        split(varArgs, input, '=');
+        createVar(varArgs, variables);
+        }
+        else {cerr << args[0] << ": command not found" << endl;}
+        //add variables
+        //add real files system and bashrc for variables and write to it if export is used
+        //Like a real terminal, use system() to execute each command ? could be difficult because of the arguments but it's possible if we use a real file system.
+    }
+
+    return 0;
+}

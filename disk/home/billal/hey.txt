@@ -1,0 +1,4 @@
+
+hello
+well this is readonly
+:q:q::q
